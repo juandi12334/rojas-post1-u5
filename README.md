@@ -46,3 +46,48 @@ Para este laboratorio el valor correcto de cycles es un número fijo, concretame
 ## Decisión técnica 2. Tiempo emulado y ciclos reales
 
 Comparar cycles=8000 con los gigahercios del procesador anfitrión mezcla dos unidades que no miden lo mismo. El parámetro cycles indica cuántas instrucciones del computador emulado intenta ejecutar DOSBox en cada milisegundo de tiempo virtual. Un gigahercio, en cambio, cuenta ciclos físicos del silicio del equipo donde está instalado Windows. Ochocientas mil instrucciones emuladas por segundo no son una fracción de esos gigahercios. Cada instrucción de 16 bits que DOSBox finge cuesta muchas instrucciones del procesador de Windows, porque la emulación interpreta el programa por software. Por eso el uso real de CPU del proceso DOSBox.exe es mucho mayor de lo que sugiere el número 8000. La centésima que ciclos.com muestra con la función 2Ch no sale de un contador del procesador real: sale del reloj que DOSBox mantiene dentro de la máquina emulada. Para observar el consumo verdadero corresponde abrir el Administrador de tareas de Windows, o el Monitor de recursos, y mirar el proceso DOSBox.exe. El archivo dosbox.conf no informa ese consumo.
+
+## Redes de la máquina virtual
+
+| Modo | IP obtenida (`ip addr show eth0`) | ¿ping 8.8.8.8 desde la VM? | ¿ping desde el anfitrión a la VM? |
+|---|---|---|---|
+| NAT | 10.0.2.15 | Sí, 3 respuestas, 0 % perdidas | No medido en esa sesión |
+| Host-Only | 192.168.56.101 | No. Respuesta: Network unreachable | Sí, 3 respuestas desde Windows |
+| Bridge | 192.168.1.38 | Sí, 3 respuestas, 0 % perdidas | Sí, 3 respuestas desde Windows. El anfitrión está en 192.168.1.8 |
+
+## Árbol de snapshots
+
+```
+snap_base
+   Alpine Linux 3.19 recien instalado, sin modificaciones
+   Estado actual despues de restaurar
+   snap_con_herramientas
+      Alpine con curl, wget, nano y htop instalados
+```
+
+Tras restaurar `snap_base`, `apk info curl` no mostró el paquete. Solo avisó que no encontraba la lista guardada del repositorio. `curl` había quedado en la foto posterior.
+
+## Decisión técnica 3. Modo de red y seguridad
+
+Para una máquina de práctica en el propio equipo, sin que otros aparatos deban alcanzarla, el modo adecuado es NAT. En la prueba obtuvo 10.0.2.15 y pudo hacer ping a 8.8.8.8, así que sale a internet a través del anfitrión. Esa dirección no es la de la red de la casa: el router no la ve como un computador más, y las conexiones las inicia la máquina hacia afuera. Queda aislada del resto de los dispositivos. Host-Only sirve para ensayar la red sin exponer la máquina. Obtuvo 192.168.56.101, el ping a 8.8.8.8 respondió Network unreachable y Windows sí pudo llamarla. Se pierde internet, y con él las actualizaciones y la instalación de paquetes. Bridge fue el de mayor alcance: recibió 192.168.1.38, en el mismo Wi-Fi que el anfitrión (192.168.1.8), respondió al ping desde Windows y también salió a internet. Cualquier dispositivo de esa red puede intentar alcanzarla, incluido el SSH de root que quedó habilitado. Por eso Bridge aumenta la superficie de ataque. En esta práctica, NAT es el modo por defecto y Host-Only el adecuado cuando el experimento debe quedar aislado.
+
+## Recursos y discos
+
+Dentro de la máquina, `nproc` devolvió 2 y `free -m` mostró 1976 MB de memoria total, cerca de los 2048 MB asignados. El anfitrión es un Intel Core i3-1315U, con 6 núcleos, 8 procesadores lógicos y 7,7 GB de RAM.
+
+La escritura de 200 MB se hizo una vez en cada disco:
+
+| Tipo de disco | Comando | Tiempo real |
+|---|---|---|
+| Fijo (Lab5-Alpine-fixed.vdi) | dd sobre /mnt/fijo/test.img | 1,98 s |
+| Dinámico (Lab5-Alpine.vdi) | dd sobre /root/test.img | 2,67 s |
+
+## Decisión técnica 4. Disco fijo, disco dinámico, CPU y RAM
+
+En la medición, el disco fijo fue más rápido: 1,98 segundos frente a 2,67 segundos del dinámico, ambos al escribir 200 MB con dd. El fijo reserva su espacio en Windows desde el momento en que se crea, así que la escritura no tiene que agrandar el archivo ni reorganizar sus datos internos. El dinámico sí paga ese costo mientras crece. Aun así, el dinámico sigue siendo la opción por defecto en un laboratorio con muchos estudiantes y discos limitados, porque solo ocupa lo que el sistema invitado realmente usa. El fijo de 4 GB ocupa esos 4 GB aunque Alpine esté casi vacío. Este anfitrión tiene 8 procesadores lógicos y 7,7 GB de memoria. Asignar 2 procesadores y 2048 MB deja margen para que Windows siga funcionando. Entregar los 8 procesadores, o casi toda la memoria, dejaría al anfitrión sin recursos y el equipo se volvería lento o dejaría de responder. `free -m` mostró 1976 MB visibles dentro de la máquina, una cifra cercana a los 2048 asignados.
+
+La máquina se exportó a `C:\Users\juand\VirtualBox VMs\Lab5-Alpine\Lab5-Alpine-export.ova`. El archivo mide 152.271.360 bytes (145 MB). No se sube al repositorio. Antes de exportar se desconectó el disco fijo de 4 GB, que tampoco se sube.
+
+## Conclusiones
+
+DOSBox emula un computador viejo: traduce cada orden por software, y por eso el mismo bucle de `ciclos.com` tardó 2626 centésimas con 1000 ciclos, 330 con 8000 y 132 con 20000. VirtualBox no imita otro procesador. Ejecuta Alpine sobre el procesador real del anfitrión, con poca sobrecarga, porque la arquitectura es la misma. `cycles` no se compara con los gigahercios del PC: cuenta órdenes emuladas por unidad de tiempo. NAT deja salir a internet y aísla la máquina de la red de la casa. Host-Only la comunica solo con Windows. Bridge la pone en el Wi-Fi real y es el modo más expuesto. Un snapshot guarda el estado del disco para volver atrás: después de instalar curl, wget, nano y htop, restaurar `snap_base` dejó la máquina sin curl.
