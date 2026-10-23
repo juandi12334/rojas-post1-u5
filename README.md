@@ -5,8 +5,8 @@ Post-contenido de Arquitectura de Computadores (UFPS). El trabajo compara la emu
 ## Datos del estudiante
 
 - Apellido: Rojas
-- Usuario de GitHub: juandi1234
-- Repositorio: `rojas-post1-u5`
+- Usuario de GitHub: juandi12334
+- Repositorio: https://github.com/juandi12334/rojas-post1-u5
 - Sistema operativo anfitrión: Windows
 
 ## Entorno
